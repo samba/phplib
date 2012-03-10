@@ -4,17 +4,16 @@
  *
  */
 
-# Get this site's configuration
-require('config.php');
+header('Content-Type: text/plain');
+
+define('PROJECT_DIR', dirname(__FILE__));
 
 # Pull in standard utilities
 require('lib/init.php');
 
-print_r($urls);
+# Apply this site's configuration
+require('config.php');
 
-# Initiate 
-if(is_array($urls))
-  print_r(URLMapping::init($urls, $_SERVER['REQUEST_METHOD'], $_SERVER['REQUEST_URI'], $_SERVER['QUERY_STRING'], constant('PROJECT_DIR')));
 
 
 

@@ -1,12 +1,12 @@
 
-# Borrowed from WordPress
+# Map all requests to the main handler
 <IfModule mod_rewrite.c>
 RewriteEngine On
-RewriteBase /
+RewriteBase /~samba/phplib/example/
 RewriteRule ^index\.php$ - [L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule . /index.php [L]
+RewriteRule . ./index.php [L]
 </IfModule>
 
 
