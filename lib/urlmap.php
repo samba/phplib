@@ -6,7 +6,7 @@ defined('URL_INCLUDE_PREFIX') || define('URL_INCLUDE_PREFIX', '');
 # Mostly just a shell to hold context
 class _URLMapping {
 
-  public static $debug = true;
+  public static $debug = false;
   public static $loaded = false;
 
   private static function get_handler(& $url, & $expression, & $handler){
@@ -23,10 +23,9 @@ class _URLMapping {
       self::$loaded = true;
       if(self::$debug) print_r(array($match, $file));
       $r = require_once($prefix . $file);
-      $c = array($r, $method);
-      if(is_callable($c) && constant('AUTO_METHOD'))
-        return call_user_func($c, $match, $uri);
-      else return null;
+      if($r instanceOf HTTPRequest)
+        return $r->render($method, $match, $uri, constant('AUTO_METHOD'));
+      return $r;
     } else return null;
   }
 
@@ -38,10 +37,10 @@ function URL($regex, $handler, $uri = null){
   if(_URLMapping::$loaded) # Only load once.
     return null;
   else return _URLMapping::import(
-    str_replace(constant('URL_PREFIX'), '/', $uri), 
+    preg_replace(sprintf('#^%s#%s', constant('URL_PREFIX'), constant('URL_REGEXP_FLAGS')), '/', $uri), 
     $regex, 
     $handler,
-    constant('REQUEST_METHOD'),
+    strtolower(constant('REQUEST_METHOD')),
     constant('URL_INCLUDE_PREFIX')
   );
 } 
