@@ -5,9 +5,15 @@
 class HTTPRequest {
   protected $match = null;
   protected $uri = null;
+  protected $body = null;
+  protected $path = null;
+  protected $method = null;
+  protected $user = null;
 
   public function __construct(){
-
+    $this->user = isset($_SERVER['REMOTE_USER']) ? $_SERVER['REMOTE_USER'] : null;
+    $this->path = constant('REQUEST_URI');
+    $this->method = constant('REQUEST_METHOD');
   }
 
   public function render($method, $match, $uri, $auto = false){
@@ -15,37 +21,37 @@ class HTTPRequest {
     $this->uri = $uri;
     $c = array($this, $method);
     if($auto && is_callable($c)){
-      $r = call_user_func($c, $match, $uri);
-      if($r instanceOf HTTPResponse){
-        print $r->render();
-      }
+      $this->body = request_body();
+      $r = call_user_func($c, new HTTPResponse(), $match, $uri);
+      if($r instanceOf HTTPResponse) print $r;
       return $r;
     }
   }
 
-  public function head(){
+  public function head($response){
     // handle HTTP HEAD queries
   }
 
-  public function get(){
+  public function get($response){
     // handle HTTP GET
   }
 
-  public function put(){
+  public function put($response){
     // handle HTTP PUT
   }
 
-  public function post(){
+  public function post($response){
     // handle HTTP POST
   }
 
-  public function delete(){
+  public function delete($response){
     // handle HTTP DELETE
   }
 
-  public function options(){
+  public function options($response){
     // handle HTTP OPTIONS
   }
+
 
   public static function param($name, $validate, $regex = false, $arr = null){
     $arr = ($arr === null) ? $_REQUEST : $arr;
