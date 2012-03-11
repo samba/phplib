@@ -40,8 +40,8 @@ class HTTPResponse {
     if($content_type) $this->content_type = $content_type;
     $this->send_headers(); 
     if(empty($tpl) && !empty($this->template)){
-      if($this->is_file) require($this->template);
-      else eval($this->template);
+      if($this->is_file) return require($this->template);
+      else return eval($this->template);
     }
   }
 
@@ -77,12 +77,22 @@ class HTTPResponse {
     )));
   }
 
-
   public static function expirestime($seconds){
     if($seconds) $seconds += time();
     return strftime('%a, %d %b %Y %H:%M:%S %z', (int) $seconds);
   }
 
 }
+
+# From PHP docs. Not quite the way I want it.
+function get_include_contents($filename) {
+  if (is_file($filename)) {
+    ob_start();
+    include $filename;
+    return ob_get_clean();
+  }
+  return false;
+}
+
 
 ?>

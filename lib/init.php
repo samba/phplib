@@ -24,6 +24,7 @@ require_once(constant('LIB_DIR') . '/util.php');
 
 # Automation classes for HTTP methods
 if(constant('AUTO_METHOD')){
+  ob_start();
   require_once(constant('LIB_DIR') . '/request.php');
   require_once(constant('LIB_DIR') . '/response.php');
 }

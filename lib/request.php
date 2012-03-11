@@ -1,7 +1,5 @@
 <?php
 
-# require_once(constant('LIB_DIR') . '/util.php');
-
 class HTTPRequest {
   protected $match = null;
   protected $uri = null;
@@ -23,7 +21,7 @@ class HTTPRequest {
     if($auto && is_callable($c)){
       $this->body = request_body();
       $r = call_user_func($c, new HTTPResponse(), $match, $uri);
-      if($r instanceOf HTTPResponse) print $r;
+      if(is_string($r) || $r instanceOf HTTPResponse) print $r;
       return $r;
     }
   }
