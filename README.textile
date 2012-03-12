@@ -1,0 +1,6 @@
+h1. Simple PHP framework
+
+Aims to simplify web application development in PHP, emulating the MVC implementation in Django.
+
+
+This project is still quite young, so documentation is lacking. Please see the 'examples' directory.
