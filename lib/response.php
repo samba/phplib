@@ -199,17 +199,15 @@ class HTTPResponse {
     return array_keys($ar) === range(0, count($ar) -1);
   }
 
-
-  public static function to_xml($obj, $node = 'root'){
-    return self::to_xml_tree($obj, $node)->asXML();
-  }
-
-  public static function to_xml_tree($obj, $n = 'root'){
+  # Render object (or array) as XML
+  public static function to_xml($obj, $n = null, $as_string = true){
+    if(is_object($obj) && is_null($n)) $n = get_class($obj);
+    if(is_null($n)) $n = 'root';
+    
     # get Root Node
     $n = $n instanceof SimpleXMLElement 
       ? $n : new SimpleXMLElement(sprintf('<%s/>', $n));
 
-    
     $values = (is_object($obj) ? get_object_vars($obj) : (is_array($obj) ? $obj : null));
     $numeric = self::array_numeric($values);
 
@@ -220,10 +218,10 @@ class HTTPResponse {
         $x->addAttribute('type', gettype($v));
         $x->addAttribute('index', (string) $k);
       }
-      else self::to_xml($v ? $v : (string) $v, $n->addChild($numeric ? $n->getName() : $k));
+      else self::to_xml($v ? $v : (string) $v, $n->addChild($numeric ? $n->getName() : $k), false);
     } 
 
-    return $n;
+    return ($as_string) ? $n->asXML() : $n;
   }
 
 }
