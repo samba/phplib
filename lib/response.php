@@ -62,7 +62,7 @@ class HTTPResponse {
 
   public function __toString(){
     $q = $this->render();
-    return (is_string($q)) ? $q : call_user_func($this->encoder, $q);
+    return (is_string($q)) ? $q : (is_callable($this->encoder) ? call_user_func($this->encoder, $q) : '');
   }
 
   public function redirect($destination, $type = 302, $message = null){
