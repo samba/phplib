@@ -22,7 +22,7 @@ class HTTPResponse {
   const PAYMENT_REQUIRED = 402;
   const FORBIDDEN = 403;
   const NOT_FOUND = 404;
-  const METHOD_NOT_ALLOWED = 405;
+  const NOT_ALLOWED = 405;
   const NOT_ACCEPTABLE = 406;
   const PROXY_AUTH_REQUIRED = 407;
   const REQUEST_TIMEOUT = 408;
@@ -35,7 +35,7 @@ class HTTPResponse {
   const UNSUPPORTED_MEDIA = 415;
   const REQUEST_RANGE_INVALID = 416;
   const EXPECTATION_FAILED = 417;
-  const IM_A_TEAPOT = 418;
+  const TEAPOT = 418;
   const ENHANCE_YOUR_CALM = 420;
   const TOO_MANY_REQUESTS = 429;
   const NO_RESPONSE = 444;
@@ -45,6 +45,7 @@ class HTTPResponse {
   const SERVICE_UNAVAILBLE = 503;
   const GATEWAY_TIMEOUT = 504;
 
+  private $encoder = null;
   private $request = null;
   private $status = 200;
   private $message = 'OK'; 
@@ -61,10 +62,10 @@ class HTTPResponse {
 
   public function __toString(){
     $q = $this->render();
-    return (is_string($q)) ? $q : '';
+    return (is_string($q)) ? $q : call_user_func($this->encoder, $q);
   }
 
-  public function redirect($destination, $type = 302, $message = 'Found'){
+  public function redirect($destination, $type = 302, $message = null){
     $this->headers['Location'] = $destination;
     $this->setStatus($type, $message);
     $this->use_template = false; # No need to render if we're redirecting early.
@@ -75,13 +76,30 @@ class HTTPResponse {
     $this->headers['Content-Type'] = $this->content_type;
     self::render_headers($this->status, $this->message, $this->headers);
 
+    if(!empty($this->raw)) return $this->raw;
     if(!empty($this->template) && $this->use_template){
       if(is_array($this->context)) extract($this->context); # bring context vars into scope 
       if($this->is_file) return require($this->template); # import a file
       else return eval($this->template); # process a PHP string
     }
   }
-  
+
+  public function setResult($val){
+    $this->raw = $val;
+  }
+
+  public function setEncoder($callback){
+    if(is_callable($callback)) $this->encoder = $callback;
+    if('json' == $callback){
+      $this->encoder = 'json_encode';
+      $this->content_type = 'text/javascript';
+    }
+    if('xml' == $callback){
+      $this->encoder = array('self', 'to_xml');
+      $this->content_type = 'text/xml';
+    }
+  }
+
   public function setContext($name, $value = null){
     $this->context[$name] = $value;
   }
@@ -99,15 +117,16 @@ class HTTPResponse {
     $this->status = $status;
     $this->message = (is_null($message) ? self::get_message($status) : $message);
   }
+  
+  public static function request_nocache(){
+    return (isset($_SERVER['HTTP_PRAGMA']) && strpos($_SERVER['HTTP_PRAGMA'], 'no-cache') !== false);
+  }
+
 
   public function setCache($seconds, $private = false, $reval = null){
     $reval = ($reval === null) ? (!$private && $seconds) : $reval;
-    $public = $seconds && !$private;
-    $nocache = !$seconds; 
-    $nostore = $private;
-
+    if(self::request_nocache()) return false; # Don't set caching headers if the client said not to.
     $this->headers['Expires'] = self::expirestime($seconds); 
-    
     $this->headers['Cache-Control'] = implode(', ', array_filter(array(
       (($private && !$seconds) ? 'no-store' : ''),
       (!$seconds ? 'no-cache' : ''),
@@ -116,6 +135,7 @@ class HTTPResponse {
       ($reval ? ($private ? 'proxy-revalidate' : 'must-revalidate') : ''),
       ($private ? '' : sprintf('max-age=%u', $seconds))
     )));
+    return true;
   }
 
   public static function expirestime($seconds){
@@ -150,7 +170,7 @@ class HTTPResponse {
     case (self::PAYMENT_REQUIRED): return 'Payment Required';
     case (self::FORBIDDEN): return 'Forbidden';
     case (self::NOT_FOUND): return 'Not Found';
-    case (self::METHOD_NOT_ALLOWED): return 'Method Not Allowed';
+    case (self::NOT_ALLOWED): return 'Method Not Allowed';
     case (self::NOT_ACCEPTABLE): return 'Not Acceptable';
     case (self::PROXY_AUTH_REQUIRED): return 'Proxy Authentication Required';
     case (self::REQUEST_TIMEOUT): return 'Request Timeout';
@@ -163,7 +183,7 @@ class HTTPResponse {
     case (self::UNSUPPORTED_MEDIA): return 'Unsupported Media Type';
     case (self::REQUEST_RANGE_INVALID): return 'Request Range Not Satisfiable';
     case (self::EXPECTATION_FAILED): return 'Expectation Failed';
-    case (self::IM_A_TEAPOT): return 'I\'m a Teapot';
+    case (self::TEAPOT): return 'I\'m a Teapot';
     case (self::ENHANCE_YOUR_CALM): return 'Enhance your calm';
     case (self::TOO_MANY_REQUESTS): return 'Too Many Requests';
     case (self::NO_RESPONSE): return 'No Response';
@@ -175,17 +195,39 @@ class HTTPResponse {
     }
   }
 
+  public static function array_numeric(& $ar){
+    return array_keys($ar) === range(0, count($ar) -1);
+  }
+
+
+  public static function to_xml($obj, $node = 'root'){
+    return self::to_xml_tree($obj, $node)->asXML();
+  }
+
+  public static function to_xml_tree($obj, $n = 'root'){
+    # get Root Node
+    $n = $n instanceof SimpleXMLElement 
+      ? $n : new SimpleXMLElement(sprintf('<%s/>', $n));
+
+    
+    $values = (is_object($obj) ? get_object_vars($obj) : (is_array($obj) ? $obj : null));
+    $numeric = self::array_numeric($values);
+
+    foreach($values as $k => & $v){
+      if(is_scalar($v) && !$numeric) $n->addAttribute($k, (string) $v);
+      elseif(is_scalar($v)){
+        $x = $n->addChild('value', $v);
+        $x->addAttribute('type', gettype($v));
+        $x->addAttribute('index', (string) $k);
+      }
+      else self::to_xml($v ? $v : (string) $v, $n->addChild($numeric ? $n->getName() : $k));
+    } 
+
+    return $n;
+  }
+
 }
 
-# From PHP docs. Not quite the way I want it.
-function get_include_contents($filename) {
-  if (is_file($filename)) {
-    ob_start();
-    include $filename;
-    return ob_get_clean();
-  }
-  return false;
-}
 
 
 ?>
