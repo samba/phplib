@@ -12,7 +12,8 @@ class HTTPRequest {
     $this->user = isset($_SERVER['REMOTE_USER']) ? $_SERVER['REMOTE_USER'] : null;
     $this->path = constant('REQUEST_URI');
     $this->method = constant('REQUEST_METHOD');
-    $this->response = new HTTPResponse($this);
+    if(class_exists('HTTPResponse'))
+      $this->response = new HTTPResponse($this);
   }
 
   public function render($method, $match, $uri, $auto = false){
@@ -22,7 +23,7 @@ class HTTPRequest {
     if($auto && is_callable($c)){
       $this->body = request_body();
       $r = call_user_func($c, $match, $uri);
-      if(is_string($r) || $r instanceOf HTTPResponse) print $r;
+      if(is_string($r) || (class_exists('HTTPResponse') && $r instanceOf HTTPResponse)) print $r;
       return $r;
     }
   }
