@@ -57,7 +57,7 @@ class HTTPResponse {
   private $use_template = true;
 
   public function __construct($req = null){
-    $this->request = null;
+    $this->request = $req;
   }
 
   public function __toString(){
