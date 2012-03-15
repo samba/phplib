@@ -1,6 +1,2 @@
-h1. Simple PHP framework
+h1. NOTE this is a WIP branch. This variation of the code is NOT guaranteed to run AT ALL.
 
-Aims to simplify web application development in PHP, emulating the MVC implementation in Django.
-
-
-This project is still quite young, so documentation is lacking. Please see the 'example' branch.
