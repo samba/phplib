@@ -29,4 +29,17 @@ function template($string, $values){
   return preg_replace('/{{\s*([a-z0-9_\-]+)(#(?:.*)#)?\s*}}/ie', '_template_eval($values, "$1", "$2")', $string);
 }
 
+
+# Select a class by its interface
+# This allows us to automatically get classes for specific purposes, e.g. databases
+function get_supporting_class($interface){
+  foreach(get_declared_classes() as $c){
+    foreach(class_implements($c) as $i){
+      if($i == $interface) return $c;
+    }
+  }
+  return null;
+}
+
+
 ?>

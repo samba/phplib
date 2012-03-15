@@ -1,31 +1,30 @@
 <?php
 
-define('DATABASE_CLASS', 'MySQLDatabase');
+class MySQLModelDB implements ModelDatabase {
+  private $database = null;
 
-class MySQLDatabase extends mysqli implements ModelDatabase {
+  public function __construct($db){
+    if($db instanceof MySQLDatabase) $this->database = $db;
+  }
 
-  public function __construct($host, $port, $user, $pass, $dbname){
-    parent::__construct($host, $user, $pass, $dbname, $port);
-  } 
 
-  # THIS MUST RETURN AN ITERATOR
+  public function table($nm){
+    return $this->database->table($nm);
+  }
+
   public function retrieve($table, $params = '*'){
-    
+    return $this->database->query($table->compile('select', $params));
+  }
+
+  public function delete($reference){
+
   }
 
   public function update($reference, $values){
 
   } 
-  
-  public function delete($reference){
 
-  }
-
-  public function properties($table){
-
-  }
-
-} 
+}
  
 
 ?>

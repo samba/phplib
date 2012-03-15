@@ -11,17 +11,15 @@ interface ModelInterface {
   public function delete();
   public static function get($id);
   public static function filter($name, $val, $operator = '=');
-  public static function create($attribs = null);
-  public static function register($classname, $table);
-  public static function properties($table = null);
 }
 
 interface ModelDatabase {
-  public function properties($table);
+  public function table($tablename);
   public function retrieve($table, $params = '*');
   public function delete($reference);
   public function update($reference, $values);
 }
+
 
 # Reference to a record in a table
 # This will be populated by the database driver, and all
@@ -36,21 +34,90 @@ class ModelReference {
   }
 }
 
+class Model implements ModelInterface {
+
+  # All models refer to this database
+  public static $database = null;
+  public static function init($database){
+    if($database instanceof IDatabase){
+      $c = get_supporting_class('ModelDatabase');
+      self::$database = new $c($database);
+
+    }
+  }
+
+  # Model classes must be assigned to a table
+  protected static $source_table = null;
+  protected static $table_mapping = array();
+  public static function assign($c){
+    $t = self::$database->table($c::$source_table);
+    self::$table_mapping[$c] = & $t;
+    $c::$source_table = & $t;
+    return $t;
+  }
+
+  # Create a query for this class
+  public static function filter($name, $val, $op = '='){
+    $c = self::$table_mapping[get_called_class()];
+    $q = new ModelQuery($c, self::$database);
+    return $q->filter($name, $val, $op);
+  }
+
+  # Direct retrieval is a form of filter query 
+  public static function get($id){
+    $c = get_called_class();
+    $res = self::filter(null, $id)->acquire();
+    return is_null($res) ? null : new $c(reset($res));
+  }
+
+  protected $attributes = array();
+
+  public function __construct($values = null){
+    if(is_object($values)) $values = get_object_vars($values);
+    foreach($values as $k => & $v)
+      $this->{$k} = & $v;
+  }
+
+  # Assign values after validating and sanitizing them.
+  public function __set($name, $val){
+    $type = self::$source_table->validate($name, $val);
+    if($type === false)
+      throw new Exception(sprintf('Type error; (%s = %s)', $name, $val));
+    $this->attributes[$name] = self::$source_table->sanitize($val, $type, $name);
+  }
+
+  public function __get($name){
+    return isset($this->attributes[$name]) ? $this->attributes[$name] : null;
+  }
+
+  # Remove this record form the database
+  public function delete(){
+    return self::$database->delete($this->reference);    
+  }
+
+  # Add or update this record in the database
+  public function save(){
+    return self::$database->update($this->reference, $this->attributes);
+  }
+}
+
+
 # Paramater aggregation class
 class ModelQuery implements Iterator{
   public $table = null;
   public $params = array();
-  public $model = null;
+  public $database = null;
 
   private $iterator = null; 
 
-  public function __construct($table, $model = null){
+  public function __construct($table, $database = null){
     $this->table = $table;
-    $this->model = $model;
+    $this->database = $database;
   }
 
   # Add parameters to the set
   public function filter($param_name, $param_val, $operator = '='){
+    if(is_null($param_name)) $param_name = $this->table->get_primary();
     array_push($this->params, array($param_name, $param_val, $operator));
     return $this;
   }
@@ -58,8 +125,9 @@ class ModelQuery implements Iterator{
   # Push the parameters to the database for retrieval;
   # Expect an iterator-compatible result
   public function & acquire(){
-    if(!($this->iterator) instanceof Iterator)
-      $iter = $this->model->database->retrieve($this->table, $this->params);
+    if(($this->iterator) instanceof Iterator)
+      return $this->iterator;
+    $iter = $this->database->retrieve($this->table, $this->params);
     if($iter instanceOf Iterator) $this->iterator = & $iter;
     return $this->iterator;
   }
@@ -89,85 +157,6 @@ class ModelQuery implements Iterator{
     $this->acquire()->valid();
   }
 
-}
-
-
-# Core model behavior
-class Model implements ModelInterface {
-
-  # Use a single database connection
-  public static $database = null;
-  public static function connect($host, $port, $user, $pass, $dbname){
-    if(!(self::$database instanceOf ModelDatabase)){
-      $c = constant('DATABASE_CLASS');
-      self::$database = new $c($host, $port, $user, $pass, $dbname);
-    }
-    return self::$database;
-  }
-
-  # Allow classes to reference tables of different names
-  public static $classmap = array(array(), array());
-  public static function register($classname, $table){
-    self::$classmap[0][$classname] = $table; # forward
-    self::$classmap[1][$table] = $classname; # reverse
-  }
-
-  public static function get_table($class = null){
-    $class = (is_string($class) ? $class : get_class(self));
-    return isset(self::$classmap[0][$class]) ? self::$classmap[0][$class] : $class;
-  }
-
-  public static function properties($table = null){
-    $table = is_string($table) ? $table : self::get_table();
-    return self::$database->properties($table);
-  }
-
-  # Create a query for this class
-  public static function filter($name, $val, $op = '='){
-    $q = ModelQuery(self::get_table(), $this);
-    return $q->filter($name, $val, $op);
-  }
-
-  # Direct retrieval is a form of filter query 
-  public static function get($id){
-    return reset(self::filter(null, $id)->acquire());
-  }
-
-  # Spawn a new record without a reference
-  public static function create($attributes = null){
-    $class = get_class(self);
-    return new $class(null, $attributes);
-  }
-
-
-  ### INSTANCE BEGINS HERE
-  
-  private $reference = null;
-  private $attributes = null;
-
-  public function __construct($ref, $attribs){
-    if($ref instanceof ModelReference) $this->reference = $ref;
-    $this->attributes = $attribs;
-  }
-
-  # Remove this record form the database
-  public function delete(){
-    return self::$database->delete($this->reference);    
-  }
-
-  # Add or update this record in the database
-  public function save(){
-    return self::$database->update($this->reference, $this->attributes);
-  }
-
-  public function __set($name, $val){
-    if(!is_array($this->attributes)) $this->attributes = array();
-    $this->attributes[$name] = $val;
-  }
-
-  public function __get($name){
-    return (is_array($this->attributes) && array_key_exists($name, $this->attributes)) ? $this->attributes[$name] : null;
-  }
 }
 
 
