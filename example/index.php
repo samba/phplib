@@ -1,28 +1,21 @@
 <?php
-/*
- *
- *
- */
+
+require('./config.php');
+require('../urlmap.php');
+require('../site.php');
+
+template('hostname', $_SERVER['HTTP_HOST']);
+
+// Serve a stylesheet with template processing
+URL('(.*)/style.css', 'route/stylesheet-template.css', true);
+
+// Route these ...
+URL('(.*)/test.php$', 'route/test.php');
+URL('(.*)/base.php$', 'route/base.php');
 
 
-define('PROJECT_DIR', dirname(__FILE__));
-
-# If defined, this will replace a leading path with '/' for handler resolution
-define('URL_PREFIX', '/~samba/phplib/example/');
-
-# Will the URL destinations create HTTPRequest handlers with corresponding methods? (e.g. get(), post()...)
-define('AUTO_METHOD', 'true');
-
-define('APP_TIMEZONE', 'America/Los_Angeles');
-
-
-# Pull in standard utilities
-require('lib/init.php');
-
-# Apply this site's configuration
-require('config.php');
-
-
-
+if(!request_handled()){
+  fail(404, 'Not found');
+}
 
 ?>
