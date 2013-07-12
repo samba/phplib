@@ -7,7 +7,7 @@ require('../site.php');
 template('hostname', $_SERVER['HTTP_HOST']);
 
 // Serve a stylesheet with template processing
-URL('(.*)/style.css', 'route/stylesheet-template.css', true);
+URL('(.*)/style.css', 'route/stylesheet-template.css', true, 'text/css');
 
 // Route these ...
 URL('(.*)/test.php$', 'route/test.php');

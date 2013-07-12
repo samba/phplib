@@ -65,17 +65,18 @@ class URLMap {
     }
   }
 
-  public static function import($match, $handler, $static_mode = false){
+  public static function import($match, $handler, $static_mode = false, $type = null){
     if($match && $handler){
       try {
+        if($static_mode && is_string($type)){
+          header('Content-Type: ' . $type);
+        }
         $result = $static_mode 
-          ? (file_get_contents($handler)) 
+          ? (readfile($handler)) 
           : require_once($handler);
         if($result instanceOf HTTPRequest){
-          $result->render(constant('EVAL_REQUEST_PATH'), $match, constant('REQUEST_METHOD'));
-        } else if(is_string($result)){
-          print $result; 
-        }
+          $result->render(constant('EVAL_REQUEST_PATH'), $match, constant('REQUEST_METHOD'), $type);
+        } 
       } catch (Exception $e) {
         fail(500, $e->getMessage());
         return false;
@@ -92,11 +93,11 @@ function request_handled(){
   return URLMap::$loaded;
 }
 
-function URL($pattern, $include_file, $static_mode = false){
+function URL($pattern, $include_file, $static_mode = false, $type_override = null){
   if(request_handled()) return false;
   list($count, $result, $file) = URLMap::match($pattern, $include_file);
   if($count){
-    URLMap::$loaded = (bool) URLMap::import($result, $file, $static_mode);
+    URLMap::$loaded = (bool) URLMap::import($result, $file, $static_mode, $type_override);
   }
 }
 
@@ -244,7 +245,7 @@ abstract class HTTPRequest {
 
 
   /* Serve a request by the matching method (i.e. HTTP GET -> $this->get(...) */ 
-  public function render($path, $match, $method){
+  public function render($path, $match, $method, $type = null){
     $callback = array($this, strtolower($method));
     if(is_callable($callback)){
       $result = call_user_func_array($callback, $match);
