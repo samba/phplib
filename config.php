@@ -7,4 +7,7 @@ define('CACHE_ENABLE', false);
 define('URL_PREFIX', constant('CONFIG_PATH'));
 define('TEMPLATE', 'prelim');
 
+
+define('APP_TIMEZONE', 'America/Los_Angeles');
+
 ?>
