@@ -25,8 +25,8 @@ function _template_eval($values, $key, $regex = null){
 }
 
 # replace {{ ... }} values in the string, filtering them by regular expressions (in #...# suffix)
-function template($string, $values){
-  return preg_replace('/{{\s*([a-z0-9_\-]+)(#(?:.*)#)?\s*}}/ie', '_template_eval($values, "$1", "$2")', $string);
-}
+#function template($string, $values){
+#  return preg_replace('/{{\s*([a-z0-9_\-]+)(#(?:.*)#)?\s*}}/ie', '_template_eval($values, "$1", "$2")', $string);
+#}
 
 ?>

@@ -24,12 +24,14 @@
 
 # Prefix of the URL to replace (i.e. a project directory, to which all evaluation is relative)
 defined('URL_PREFIX') || define('URL_PREFIX', null);
+
+# Make URL matching case-insensitive
 defined('URL_MATCH_FLAGS') || define('URL_MATCH_FLAGS', 'i');
 
 # Environment defaults for URL parsers
 defined('REQUEST_METHOD') || define('REQUEST_METHOD', $_SERVER['REQUEST_METHOD']);
 defined('REQUEST_URI') || define('REQUEST_URI', $_SERVER['REQUEST_URI']);
-defined('QUERY_STRING') || define('QUERYS_STRING', $_SERVER['QUERY_STRING']);
+defined('QUERY_STRING') || define('QUERY_STRING', $_SERVER['QUERY_STRING']);
 defined('REQUEST_PATH') || define('REQUEST_PATH', str_replace(($_SERVER['QUERY_STRING'] ? '?' : '') . $_SERVER['QUERY_STRING'], '', $_SERVER['REQUEST_URI']));
 
 # Resulting request path for URL handler evaluation
@@ -44,36 +46,52 @@ HTTPResponseBody::add_filter(); # Begin buffering
 function fail($status = 404, $message = null){
   HTTPResponse::render_headers($status, $message, array('Content-Type' => 'text/plain'));  
   print $message;
+  HTTPResponseBody::flush(); # dump the buffer
 }
 
 class URLMap {
   public static $loaded = false;
-  
+
+  /* Drop statically defined prefixes from URL matching */ 
   public static function this_url($url){
     return constant('URL_PREFIX')
       ? preg_replace(sprintf('#^%s#%s', constant('URL_PREFIX'), constant('URL_MATCH_FLAGS')), '', $url)
       : $url;
   }
 
+  /* Match results for the current URL */
   public static function match($pattern, $include_file){
     $pattern = sprintf('#%s#%s', $pattern, constant('URL_MATCH_FLAGS'));
-    if(is_file($include_file)){
-      $c = preg_match($pattern, constant('EVAL_REQUEST_PATH'), $match);
-      return array($c, $match, $include_file);
+    $c = preg_match($pattern, constant('EVAL_REQUEST_PATH'), $match);
+    if($c === 1){
+      $handler = self::populate($include_file, $match);
+      return array($c, $match, $handler); 
     } else {
-      return array(0, false, false);  
+      return array(0, false, false);
     }
   }
 
+  /* Load the mapped handler and process the request */
   public static function import($match, $handler, $static_mode = false, $type = null){
+    $result = null;
     if($match && $handler){
       try {
-        if($static_mode && is_string($type)){
-          header('Content-Type: ' . $type);
+        if($static_mode){
+          if(!is_file($handler)){
+            error_log('PHP: File not found: ' . getcwd() . '/' . $handler);
+            return false;
+          }
+          
+          if(is_string($type)){
+            header('Content-Type: ' . $type);
+          } else {
+            header('Content-Type: ' . self::guess_type($handler));
+          }
+          
+          $result = readfile($handler);
+        } elseif(is_file($handler)) {
+          $result = require_once($handler);
         }
-        $result = $static_mode 
-          ? (readfile($handler)) 
-          : require_once($handler);
         if($result instanceOf HTTPRequest){
           $result->render(constant('EVAL_REQUEST_PATH'), $match, constant('REQUEST_METHOD'), $type);
         } 
@@ -87,12 +105,40 @@ class URLMap {
     }
   }
 
+  public static function populate($pattern, $match){
+    $reps = array();
+    for($i = 0; $i < count($match); $i++){
+      $reps[ '$' . $i ] = $match[ $i ];
+    }
+    return str_replace(array_keys($reps), array_values($reps), $pattern);
+  }
+
+  public static $extensions = array(
+    'png' => 'image/png',
+    'jpg' => 'image/jpg',
+    'gif' => 'image/gif',
+    'css' => 'text/css',
+    'json' => 'application/json',
+    'js' => 'text/javascript'
+  );
+
+  public static function guess_type($filename){
+    # $finfo = new finfo(FILEINFO_MIME | FILEINFO_SYMLINK);
+    # return $finfo->file($filename);
+    $ext = substr($filename, strrpos($filename, '.') + 1, strlen($filename));
+    return array_key_exists($ext, self::$extensions) 
+      ? self::$extensions[ $ext ]
+      : 'application/octet-stream';
+  }
+
 }
 
+/* Indicates handling status to properly yield 404s */
 function request_handled(){
   return URLMap::$loaded;
 }
 
+/* Convenient mapping shortcut for URL regular expressions to include-files */
 function URL($pattern, $include_file, $static_mode = false, $type_override = null){
   if(request_handled()) return false;
   list($count, $result, $file) = URLMap::match($pattern, $include_file);
@@ -101,7 +147,16 @@ function URL($pattern, $include_file, $static_mode = false, $type_override = nul
   }
 }
 
+function redirect($pattern, $destination, $type = 302){
+  if(request_handled()) return false;
+  list($count, $result, $file) = URLMap::match($pattern, $destination);
+  if($count){
+    URLMap::$loaded = true;
+    header('Location: ' . URLMap::populate($destination, $result), true, (int) $type);
+  }
+}
 
+/* Iterates over matches in a string */
 class RegExpIterator implements Iterator {
   private $pattern = null;
   private $results = null;
@@ -214,7 +269,7 @@ class AcceptHeader {
 }
 
 
-
+/* Request processing base handler */
 abstract class HTTPRequest {
   protected $match = null;
   protected $uri = null;
@@ -293,7 +348,7 @@ abstract class HTTPRequest {
 
 }
 
-
+/* Response processing base handler */
 class HTTPResponse {
   protected $headers = array();
   protected $status = 200;
@@ -470,11 +525,12 @@ class HTTPResponse {
 
 }
 
+/* Simple declaration of template values */
 function template($name, $value){
   return HTTPResponseBody::define_global($name, $value);
 }
 
-
+/* Response body processing */
 class HTTPResponseBody {
   
   public $template_context = array();
@@ -546,6 +602,7 @@ class HTTPResponseBody {
     return (bool) preg_match('#^(text/[.*]|application/(json|x(ht)?ml(\+xml)?))$#', $content_type);
   }
 
+  /* Massages output for valid HTML */
   public static function cleanup_html($content){
     @libxml_use_internal_errors(true);
     $doc = new DOMDocument();
@@ -563,12 +620,6 @@ class HTTPResponseBody {
     if(array_key_exists($ctype, $ctype_override)){
       $ctype = $ctype_override[$ctype];
     }
-
-    # print_r(array(
-    #   'body' => $this->body_content,
-    #   'type' => $ctype
-    # ));
-
 
     if($pass_header) header('Content-Type: ' . $ctype, true);
     if(self::is_raw_format($ctype) && is_string($this->body_content)){
@@ -626,7 +677,4 @@ class HTTPResponseBody {
 
 }
 
-
-
-/* vim: set nowrap tabstop=2 shiftwidth=2 softtabstop=0 expandtab textwidth=0 filetype=php foldmethod=syntax foldmarker={{{,}}} foldcolumn=4*/
 ?>
