@@ -1,9 +1,11 @@
 <?php
 
+# Evalute path mapping as sub-components the current directory (i.e. ignore this path as the prefix)
+define('CONFIG_PATH', dirname($_SERVER['PHP_SELF']));
+define('URL_PREFIX', constant('CONFIG_PATH'));
 
-# URL('^/$', 'site/pages/alpha.php');
-# URL('^/beta$', 'site/pages/beta.php');
-# URL('^/(gamma|delta)/', 'site/pages/$1.php');
-# URL('^(.*)$', 'site/pages/default.php');
+define('CACHE_ENABLE', false);
+define('TEMPLATE', 'prelim');
+define('APP_TIMEZONE', 'America/Los_Angeles');
 
 ?>

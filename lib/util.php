@@ -11,6 +11,17 @@ function & request_body ($decode = null, $args = array()) {
 }
 
 
+function report_timer($start_time, $name = null, $send_html = true){
+	$diff = microtime() - $start_time;
+	if($send_html && headers_sent()){
+		printf("<!-- time elapsed (%s): %f -->", (empty($name) ? 'none' : $name), $diff);
+	} else {
+		header(sprintf('X-Time-Elapsed-%s: %f', (empty($name) ? 'none' : $name), $diff));
+	}
+}
+
+
+
 function startswith($string, $prefix){
   return strpos($string, $prefix) === 0;
 }
@@ -18,15 +29,5 @@ function startswith($string, $prefix){
 function endswith($string, $prefix){
   return strpos($string, $prefix) === strlen($string) - strlen($prefix);
 }
-
-function _template_eval($values, $key, $regex = null){
-  if(empty($regex) || preg_match($regex, $values[$key])) return $values[$key];
-  return null;
-}
-
-# replace {{ ... }} values in the string, filtering them by regular expressions (in #...# suffix)
-#function template($string, $values){
-#  return preg_replace('/{{\s*([a-z0-9_\-]+)(#(?:.*)#)?\s*}}/ie', '_template_eval($values, "$1", "$2")', $string);
-#}
 
 ?>

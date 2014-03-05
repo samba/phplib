@@ -1,31 +1,34 @@
 <?php
 
+define('INIT_START', microtime());
+
 # Where is this library loading?
 define('LIB_DIR', dirname(__FILE__));
+
+define('CACHE_DIR', dirname(__FILE__) . '/cache');
 
 # Template support paths
 defined('TEMPLATE') || define('TEMPLATE', 'undefined');
 defined('TEMPLATE_DIR') || define('TEMPLATE_DIR', 'site/template/' . constant('TEMPLATE'));
 
-# Should we load HTTP-method handlers automatically?
-defined('AUTO_METHOD') || define('AUTO_METHOD', false);
 
-# Environment defaults for URL parsers
-defined('REQUEST_METHOD') || define('REQUEST_METHOD', $_SERVER['REQUEST_METHOD']);
-defined('REQUEST_URI') || define('REQUEST_URI', $_SERVER['REQUEST_URI']);
-defined('QUERY_STRING') || define('QUERY_STRING', $_SERVER['QUERY_STRING']);
-defined('REQUEST_PATH') || define('REQUEST_PATH', str_replace($_SERVER['QUERY_STRING'], '', $_SERVER['REQUEST_URI']));
+###########################################################
+# Prepare the working environment
 
+if(defined('APP_TIMEZONE'))
+  date_default_timezone_set(constant('APP_TIMEZONE'));
 
 
 ###########################################################
-# Real action begins here.
+# Load supporting libraries
 
-require_once(constant('LIB_DIR') . '/util.php'); # common utilities (e.g. string processing)
-require_once(constant('LIB_DIR') . '/urlmap.php'); # URL mapping automation
-require_once(constant('LIB_DIR') . '/site.php'); # Site configuration and base templating
-require_once(constant('LIB_DIR') . '/template.php'); # Template loading & support features
-require_once(constant('LIB_DIR') . '/cache.php'); # Cache features (placeholder)
+require_once(constant('LIB_DIR') . '/util.php'); # Small utilities used elsewhere...
+#require_once(constant('LIB_DIR') . '/defaults.php'); # Configure defaults if not already set
+require_once(constant('LIB_DIR') . '/template.php'); # Template language features (i.e. output filtering)
+require_once(constant('LIB_DIR') . '/router.php'); # Request routing support
+require_once(constant('LIB_DIR') . '/objectify.php'); # HTTP Request & Response object models
+#require_once(constant('LIB_DIR') . '/site.php'); # Site configuration and base theming
+#require_once(constant('LIB_DIR') . '/cache.php'); # Cache features (placeholder)
 
 
 ?>
